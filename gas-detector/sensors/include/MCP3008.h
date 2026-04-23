@@ -1,6 +1,9 @@
 #ifndef MCP3008_H
 #define MCP3008_H
 
+#include <string>
+#include <cstdint>
+
 class MCP3008 {
 public:
     MCP3008(const std::string&  = "/dev/spidev0.0", uint32_t speed = 1350000);

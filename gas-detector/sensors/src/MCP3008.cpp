@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <cstring>
+#include <cstdint>
 
 MCP3008::MCP3008(const std::string& device, uint32_t speed) : speed(speed) {
     spi_fd = open(device.c_str(), O_RDWR);  // open file decriptor
@@ -38,7 +39,6 @@ MCP3008::~MCP3008() {
         close(spi_fd);
     }
 }
-
 
 int MCP3008::readChannel(int channel) {
     // MCP3008 has 8 channels: 0–7
