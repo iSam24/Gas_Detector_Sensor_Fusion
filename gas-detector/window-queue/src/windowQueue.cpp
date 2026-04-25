@@ -1,7 +1,7 @@
 #include "windowQueue.h"
 
 // Called by capture thread, blocks if queue is full
-void windowQueue::push(CaptureWindow window) {
+void WindowQueue::push(CaptureWindow window) {
     std::unique_lock<std::mutex> lock(mutex_);  // lock mutex
 
     // Tells the current thread to wait until the queue is not full, or until we’ve been told to stop
@@ -9,7 +9,7 @@ void windowQueue::push(CaptureWindow window) {
     // wakes up when full_ is notified
     // re checks condition
     // proceeds when condition is true
-    full_.wait(lock, [this] {return queue_.size() < maxSize_ || stopped_});
+    full_.wait(lock, [this] {return queue_.size() < maxSize_ || stopped_;});
 
     if (stopped_) return;
 
@@ -19,7 +19,7 @@ void windowQueue::push(CaptureWindow window) {
 }
 
 // Get data from the queue
-std::optional<CaptureWindow> windowQueue::pop() {
+std::optional<CaptureWindow> WindowQueue::pop() {
     std::unique_lock<std::mutex> lock(mutex_);  // lock mutex
 
     // wait until queue is not empty, or we've been told to stop
@@ -27,7 +27,7 @@ std::optional<CaptureWindow> windowQueue::pop() {
     // wakes up when empty_ is notified
     // re checks condition
     // proceeds when condition is true
-    empty_.wait(lock, [this] {return !queue.empty() || stopped_});
+    empty_.wait(lock, [this] {return !queue_.empty() || stopped_;});
 
     if (queue_.empty()) return std::nullopt;  // stopped + empty
 
@@ -40,7 +40,7 @@ std::optional<CaptureWindow> windowQueue::pop() {
     return window;
 }
 
-void windowQueue::stop() {
+void WindowQueue::stop() {
     std::lock_guard<std::mutex> lock(mutex_);
     stopped_ = true;
     empty_.notify_all();

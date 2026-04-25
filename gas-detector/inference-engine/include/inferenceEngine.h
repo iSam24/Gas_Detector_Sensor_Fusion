@@ -25,13 +25,10 @@ struct InferenceResult {
     std::array<float, 4> probabilities;
 };
 
-class infernceEngine {
+class InferenceEngine {
 public:
-    InferenceEngine(const std::string& modelPath,
-                    const std::string& normStatsPath);
+    InferenceEngine(const std::string& modelPath);
     ~InferenceEngine() = default;   // unique_ptr handles cleanup
-
-    InferenceEngine::~InferenceEngine();
 
     // ir_frames : (20, 32, 24)
     // gas       : (20, 3)
@@ -42,7 +39,6 @@ public:
 
 private:
     void loadModel(const std::string& modelPath);
-    void loadNormStats(const std::string& normStatsPath);
     void normalise(
         const std::vector<std::vector<std::vector<float>>>& irFrames,
         const std::vector<std::vector<float>>& gas,

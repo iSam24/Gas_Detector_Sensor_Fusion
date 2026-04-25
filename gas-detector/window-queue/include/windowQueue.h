@@ -1,4 +1,4 @@
-#ifnedf WINDOW_QUEUE_H
+#ifndef WINDOW_QUEUE_H
 #define WINDOW_QUEUE_H
 
 #include <queue>
@@ -31,12 +31,9 @@ private:
     std::mutex                 mutex_;
 
     std::condition_variable    full_;
-    std::condition_variable    empty;
+    std::condition_variable    empty_;
     int                        maxSize_;
     bool                       stopped_ = false;
 };
-
-
-
 
 #endif // WINDOW_QUEUE_H

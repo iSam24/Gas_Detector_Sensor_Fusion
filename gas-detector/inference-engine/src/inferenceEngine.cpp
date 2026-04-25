@@ -8,10 +8,9 @@
 #include <stdexcept>
 
 
-InferenceEngine::InferenceEngine(const std::string& modelPath, const std::string& normStatsPath) 
+InferenceEngine::InferenceEngine(const std::string& modelPath) 
 {
     loadModel(modelPath);
-    loadNormStats(normStatsPath);
 }
 
 void InferenceEngine::loadModel(const std::string& modelPath) 
@@ -20,14 +19,14 @@ void InferenceEngine::loadModel(const std::string& modelPath)
     model_ = tflite::FlatBufferModel::BuildFromFile(modelPath.c_str());
     
     // check if model
-    if (!model_) throw std::runtime_error("Model not loaded: " + path);
+    if (!model_) throw std::runtime_error("Model not loaded: " + modelPath);
 
     // Build the Interpreter
     // create a resolver
     tflite::ops::builtin::BuiltinOpResolver resolver;
 
     // create a builder
-    InterpreterBuilder builder(*model_, resolver);
+    tflite::InterpreterBuilder builder(*model_, resolver);
 
     // check if builder(&interpreter)
     if (builder(&interpreter_) != kTfLiteOk || !interpreter_) {
@@ -60,7 +59,7 @@ void InferenceEngine::normalise(const std::vector<std::vector<std::vector<float>
                 // ir_norm  = (ir_frames - ir_mean) / ir_std
                 int flatIdx = t * IR_H * IR_W + h * IR_W + w;
                 int statIndex = h * IR_W + w;
-                irNorm[flatIdx] = (irFrams[t][h][w] - IR_MEAN[statIndex]) / IR_STD[statIndex];
+                irNorm[flatIdx] = (irFrames[t][h][w] - IR_MEAN[statIndex]) / IR_STD[statIndex];
             }
         }
     }
@@ -102,7 +101,7 @@ InferenceResult InferenceEngine::run(
     }
 
     // Run inference
-    if (interpreter_->invoke() != kTfLiteOk) {
+    if (interpreter_->Invoke() != kTfLiteOk) {
         throw std::runtime_error("Inference Invoke() failed");
     }
 
@@ -110,9 +109,13 @@ InferenceResult InferenceEngine::run(
 
     InferenceResult result;
 
-    std::copy(output, output + NUM_CLASSES, results.probabilities.begin());
+    std::copy(output, output + NUM_CLASSES, result.probabilities.begin());
 
-    result.classIdx = std::max_element(result.probabilities.begin(), result.probabilties.end());
+    result.classIdx = std::max_element(result.probabilities.begin(), 
+                                      result.probabilities.end())
+                                      - result.probabilities.begin();
     result.label = CLASSES[result.classIdx];
     result.confidence = result.probabilities[result.classIdx];
+
+    return result;
 }
