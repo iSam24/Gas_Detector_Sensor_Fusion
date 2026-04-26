@@ -102,27 +102,6 @@ ir_frames = ir_sensor.getIrData(num_frames=20)  # Shape: (20, 32, 24)
 gas_readings = gas_sensor.getGasData(duration=5, fps=4)  # Shape: (20, 3)
 
 ```
-
-#### 3. Dataset Organisation
-
-Run `generate_sample.py` to create datasets:
-
-```bash
-cd data-extraction/
-python generate_sample.py --class normal --samples 100 --output dataset/normal/
-python generate_sample.py --class aerosol --samples 100 --output dataset/aerosol/
-python generate_sample.py --class flame --samples 100 --output dataset/flame/
-python generate_sample.py --class breath --samples 100 --output dataset/breath/
-```
-
-#### 4. NPZ File Validation
-
-Validate collected data with:
-
-```bash
-python check_npz_file.py dataset/normal/sample_001.npz
-```
-
 ### Data Format Specifications
 
 - **NPZ Archive** containing:
@@ -240,8 +219,7 @@ pip install -r requirements.txt
 If not already available:
 
 ```bash
-bash tensorflow_setup.sh
-# This script compiles TensorFlow Lite for ARM64
+bash tensorflow_setup.sh    # Compiles TensorFlow Lite for ARM64
 ```
 
 ### Step 4: Compile Gas Detector Application
@@ -283,10 +261,9 @@ Open gas_detector_model.ipynb in google collab and upload dataset to google driv
 
 #### Phase 3: Deployment & Inference
 
-```bash
-# Copy models to deployment directory
-cp python-inference/model_float32.tflite gas-detector/app/
+Copy model from google collab to raspberry Pi 5.
 
+```bash
 # Build C++ application
 cd gas-detector/app
 make
@@ -324,27 +301,13 @@ ls -la /dev/spidev*
 # Should show /dev/spidev0.0 and /dev/spidev0.1
 ```
 
-### Model Loading Errors
-```bash
-# Ensure model path is correct
-# Check model file exists and is readable
-file python-inference/model_float32.tflite
-```
-
-### Compilation Errors
-```bash
-# Ensure all dependencies are installed
-# Check TensorFlow Lite library path in Makefile
-# Verify C++17 support: g++ --version
-```
-
 ---
 
 ## Project References
 
 - [MLX90640 Datasheet](https://www.melexis.com/en/documents/documentation/datasheets/datasheet-mlx90640)
-- [MCP3008 Datasheet](https://www.microchip.com/en-us/product/MCP3008)
+- [MCP3008 Datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/MSLD/ProductDocuments/DataSheets/MCP3004-MCP3008-Data-Sheet-DS20001295.pdf)
 - [TensorFlow Lite](https://www.tensorflow.org/lite)
-- [Raspberry Pi 5](https://www.raspberrypi.com/products/raspberry-pi-5/)
+- [Raspberry Pi 5](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html)
 
 ---
