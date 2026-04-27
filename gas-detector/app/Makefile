@@ -29,14 +29,15 @@ SRCS := src/main.cpp \
 # Objects (mirror folder structure in build/)
 OBJS := $(SRCS:%.cpp=$(BUILD_DIR)/%.o)
 
-# Includes
+# Includes - add curl and nlohmann/json
 INCLUDES := -I$(SENSORS_INC_DIR) \
             -I$(MLX_LIB_INC) \
 			-I$(INFERENCE_ENGINE_INC) \
 			-I$(WINDOW_QUEUE_INC) \
-			-I${TF_SRC}
+			-I${TF_SRC} \
+			-I/usr/include/nlohmann
 
-# Libraries - TensorFlow Lite with all dependencies
+# Libraries - TensorFlow Lite with all dependencies + curl
 # Using whole-archive to ensure all symbols are linked
 LDFLAGS := -Wl,--whole-archive \
            $(TF_LIB)/libtensorflow-lite.a \
@@ -57,7 +58,7 @@ LDFLAGS := -Wl,--whole-archive \
            $(shell find $(TF_LIB)/_deps/ruy-build/ruy -maxdepth 1 -name '*.a' -type f) \
            $(shell find $(TF_LIB)/_deps/abseil-cpp-build -name '*.a' -type f) \
            -Wl,--no-whole-archive \
-           -ldl -lpthread -lm
+           -lcurl -ldl -lpthread -lm
 
 # Default target
 all: $(BUILD_DIR) $(TARGET)

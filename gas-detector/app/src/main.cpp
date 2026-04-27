@@ -8,12 +8,16 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <curl/curl.h>
+#include <nlohmann/json.hpp>
 
 #include "MLX90640.h"
 #include "MQSensor.h"
 #include "MCP3008.h"
 #include "inferenceEngine.h"
 #include "windowQueue.h"
+
+using json = nlohmann::json;
 
 // Config
 static constexpr int   SAMPLE_DURATION_SEC = 5;
@@ -23,6 +27,8 @@ static constexpr int   TARGET_SAMPLES_IR   = TARGET_SAMPLES + 1;                
 static constexpr const char* MODEL_PATH    =   "/home/isam/dev/MLX90640/python-inference/model_float32v2.tflite";
 static constexpr int    NUM_QUEUE_WINDOWS  = 2;
 static bool             DEBUG              = false;
+static constexpr const char* FRONTEND_URL  = "http://localhost:8000/api/data";
+static bool             ENABLE_FRONTEND    = true;
 
 static std::atomic<int> capture_count{0};
 static std::atomic<bool> running{true};
@@ -30,6 +36,82 @@ static std::atomic<bool> running{true};
 void signalHandler(int sig) {
     std::cout << "Interrupt handle " << sig << "\n";
     running = false;
+}
+
+// Callback for CURL to write response data
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+// Send prediction data to frontend via HTTP POST
+void sendToFrontend(const std::vector<std::vector<std::vector<float>>>& irFrames,
+                     const std::vector<std::vector<float>>& gasData,
+                     const InferenceResult& result)
+{
+    if (!ENABLE_FRONTEND) return;
+
+    try {
+        // Flatten IR frames (20 frames x 768 values each)
+        json irDataJson = json::array();
+        for (const auto& frame : irFrames) {
+            std::vector<float> flatFrame;
+            for (const auto& row : frame) {
+                for (float val : row) {
+                    flatFrame.push_back(val);
+                }
+            }
+            irDataJson.push_back(flatFrame);
+        }
+
+        // Convert gas data
+        json gasDataJson = gasData;
+
+        // Create payload
+        json payload = {
+            {"ir_data", irDataJson},
+            {"gas_data", gasDataJson},
+            {"prediction", result.label},
+            {"confidence", result.confidence},
+            {"probabilities", result.probabilities},
+            {"timestamp", std::chrono::system_clock::now().time_since_epoch().count()}
+        };
+
+        std::string jsonStr = payload.dump();
+
+        // Send via CURL
+        CURL* curl = curl_easy_init();
+        if (!curl) {
+            std::cerr << "[Frontend] Failed to initialize CURL\n";
+            return;
+        }
+
+        std::string readBuffer;
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        curl_easy_setopt(curl, CURLOPT_URL, FRONTEND_URL);
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonStr.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+
+        CURLcode res = curl_easy_perform(curl);
+        
+        if (res != CURLE_OK) {
+            std::cerr << "[Frontend] Failed to send data: " << curl_easy_strerror(res) << "\n";
+        } else {
+            if (DEBUG) {
+                std::cout << "[Frontend] Data sent successfully (" << jsonStr.length() << " bytes)\n";
+            }
+        }
+
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    } catch (const std::exception& e) {
+        std::cerr << "[Frontend] Error: " << e.what() << "\n";
+    }
 }
 
 // Write IR frames (20, 32, 24) as (20, 768) flat CSV — matches debug_ir_frames.csv
@@ -150,6 +232,9 @@ void inferenceThread(InferenceEngine& engine, WindowQueue& queue) {
         if (!window) break; // queue stopped and empty
 
         InferenceResult result = engine.run(window->irFrames, window->gas);
+
+        // Send to frontend
+        sendToFrontend(window->irFrames, window->gas, result);
 
         std::cout << "\n┌─────────────────────────────┐\n";
         std::cout << "│ Prediction: "
